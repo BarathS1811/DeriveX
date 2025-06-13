@@ -4,7 +4,9 @@ import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import ChartsView from './components/ChartsView';
 import DerivativesView from './components/DerivativesView';
+import AnalysisView from './components/AnalysisView';
 import NewsView from './components/NewsView';
+import SettingsView from './components/SettingsView';
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -17,8 +19,12 @@ function App() {
         return <ChartsView />;
       case 'derivatives':
         return <DerivativesView />;
+      case 'analysis':
+        return <AnalysisView />;
       case 'news':
         return <NewsView />;
+      case 'settings':
+        return <SettingsView />;
       default:
         return <Dashboard />;
     }

@@ -1,49 +1,59 @@
-import React from 'react';
-import { Newspaper, Clock, TrendingUp, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Newspaper, Clock, TrendingUp, AlertTriangle, Search } from 'lucide-react';
 
 const NewsView: React.FC = () => {
-  const news = [
-    {
-      title: 'RBI Monetary Policy: Repo Rate Held at 6.50%',
-      summary: 'Reserve Bank maintains accommodative stance, inflation concerns persist',
-      impact: 'High',
-      sentiment: 'Neutral',
-      time: '2 hours ago',
-      marketMove: '+0.85%',
-      historicalPattern: 'Similar to Dec 2022 decision - market rallied 1.2% next day',
-      category: 'Monetary Policy'
-    },
-    {
-      title: 'Q3 GDP Growth Accelerates to 6.8%',
-      summary: 'Manufacturing and services sectors show strong momentum',
-      impact: 'High',
-      sentiment: 'Positive',
-      time: '4 hours ago',
-      marketMove: '+1.20%',
-      historicalPattern: 'GDP beats often trigger 0.8-1.5% index gains',
-      category: 'Economic Data'
-    },
-    {
-      title: 'FII Inflows Touch ₹12,000 Cr This Week',
-      summary: 'Foreign institutional investors increase equity allocation',
-      impact: 'Medium',
-      sentiment: 'Positive',
-      time: '6 hours ago',
-      marketMove: '+0.45%',
-      historicalPattern: 'Weekly FII flows >₹10k Cr historically bullish',
-      category: 'FII/DII Activity'
-    },
-    {
-      title: 'Crude Oil Prices Surge 3% on Geopolitical Tensions',
-      summary: 'Middle East tensions escalate, energy stocks rally',
-      impact: 'Medium',
-      sentiment: 'Mixed',
-      time: '8 hours ago',
-      marketMove: '-0.30%',
-      historicalPattern: 'Oil spikes >2% typically pressure broader markets',
-      category: 'Commodities'
-    },
-  ];
+  const [selectedIndex, setSelectedIndex] = useState('NIFTY50');
+
+  const indices = ['NIFTY50', 'BANKNIFTY', 'NIFTYIT', 'NIFTYFMCG', 'NIFTYFINANCIAL', 'NIFTYMIDCAP50', 'NIFTYSMALLCAP100'];
+
+  const newsData = {
+    NIFTY50: [
+      {
+        title: 'RBI Monetary Policy: Repo Rate Held at 6.50%',
+        summary: 'Reserve Bank maintains accommodative stance, inflation concerns persist',
+        impact: 'High',
+        sentiment: 'Neutral',
+        time: '2 hours ago',
+        marketMove: '+0.85%',
+        historicalPattern: 'Similar to Dec 2022 decision - market rallied 1.2% next day',
+        category: 'Monetary Policy'
+      },
+      {
+        title: 'Q3 GDP Growth Accelerates to 6.8%',
+        summary: 'Manufacturing and services sectors show strong momentum',
+        impact: 'High',
+        sentiment: 'Positive',
+        time: '4 hours ago',
+        marketMove: '+1.20%',
+        historicalPattern: 'GDP beats often trigger 0.8-1.5% index gains',
+        category: 'Economic Data'
+      },
+    ],
+    BANKNIFTY: [
+      {
+        title: 'Banking Sector NPAs Decline to 3.2%',
+        summary: 'Major banks report improved asset quality in Q3',
+        impact: 'High',
+        sentiment: 'Positive',
+        time: '1 hour ago',
+        marketMove: '+1.45%',
+        historicalPattern: 'NPA improvements historically boost banking index by 1-2%',
+        category: 'Banking'
+      },
+      {
+        title: 'RBI Increases Bank Credit Growth Target',
+        summary: 'Central bank encourages lending to boost economic growth',
+        impact: 'Medium',
+        sentiment: 'Positive',
+        time: '3 hours ago',
+        marketMove: '+0.75%',
+        historicalPattern: 'Credit growth targets typically positive for bank stocks',
+        category: 'Regulatory'
+      },
+    ]
+  };
+
+  const currentNews = newsData[selectedIndex] || newsData.NIFTY50;
 
   const marketEvents = [
     {
@@ -71,6 +81,15 @@ const NewsView: React.FC = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold">News & Market Signals</h2>
         <div className="flex items-center gap-4">
+          <select 
+            value={selectedIndex} 
+            onChange={(e) => setSelectedIndex(e.target.value)}
+            className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm"
+          >
+            {indices.map(index => (
+              <option key={index} value={index}>{index}</option>
+            ))}
+          </select>
           <div className="text-sm text-gray-400">
             AI Confidence: <span className="text-secondary font-semibold">94%</span>
           </div>
@@ -85,11 +104,11 @@ const NewsView: React.FC = () => {
           <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
             <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <Newspaper className="w-5 h-5" />
-              Market-Moving News
+              {selectedIndex} Related News
             </h3>
             
             <div className="space-y-4">
-              {news.map((item, index) => (
+              {currentNews.map((item, index) => (
                 <div key={index} className="bg-gray-750 rounded-lg p-4 border border-gray-600">
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">
@@ -143,7 +162,7 @@ const NewsView: React.FC = () => {
           <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
             <h3 className="font-semibold mb-4 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
-              Market Alert System
+              {selectedIndex} Alerts
             </h3>
             
             <div className="space-y-3">
