@@ -2,22 +2,30 @@ import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
-const MarketSentiment: React.FC = () => {
+interface MarketSentimentProps {
+  indexName?: string;
+}
+
+const MarketSentiment: React.FC<MarketSentimentProps> = ({ indexName = 'Market' }) => {
   const sentimentData = [
-    { name: 'Bullish', value: 45, color: '#10B981' },
-    { name: 'Bearish', value: 30, color: '#EF4444' },
-    { name: 'Neutral', value: 25, color: '#6B7280' },
+    { name: 'Bullish', value: indexName === 'NIFTY50' ? 45 : 38, color: '#10B981' },
+    { name: 'Bearish', value: indexName === 'NIFTY50' ? 30 : 42, color: '#EF4444' },
+    { name: 'Neutral', value: indexName === 'NIFTY50' ? 25 : 20, color: '#6B7280' },
   ];
 
-  const signals = [
+  const signals = indexName === 'NIFTY50' ? [
     { type: 'Buy', strength: 'Strong', indicator: 'CPR + Supertrend', time: '2 min ago' },
     { type: 'Sell', strength: 'Moderate', indicator: 'RSI Divergence', time: '5 min ago' },
     { type: 'Hold', strength: 'Weak', indicator: 'VWAP Analysis', time: '8 min ago' },
+  ] : [
+    { type: 'Sell', strength: 'Strong', indicator: 'Banking Stress', time: '1 min ago' },
+    { type: 'Hold', strength: 'Moderate', indicator: 'NPA Concerns', time: '4 min ago' },
+    { type: 'Buy', strength: 'Weak', indicator: 'Credit Growth', time: '7 min ago' },
   ];
 
   return (
     <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-      <h3 className="text-xl font-semibold mb-4">Market Sentiment & Signals</h3>
+      <h3 className="text-xl font-semibold mb-4">{indexName} Sentiment & Signals</h3>
       
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="h-48">

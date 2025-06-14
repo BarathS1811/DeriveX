@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, TrendingUp, Zap, Activity, Newspaper, Settings } from 'lucide-react';
+import { BarChart3, TrendingUp, Zap, Activity, Newspaper, Settings, DollarSign, Briefcase } from 'lucide-react';
 
 interface SidebarProps {
   activeView: string;
@@ -13,6 +13,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
     { id: 'derivatives', label: 'Derivatives', icon: Zap },
     { id: 'analysis', label: 'Analysis', icon: Activity },
     { id: 'news', label: 'News & Signals', icon: Newspaper },
+    { id: 'trading', label: 'Trading', icon: DollarSign },
+    { id: 'portfolio', label: 'Portfolio', icon: Briefcase },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 

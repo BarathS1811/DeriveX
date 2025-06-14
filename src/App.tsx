@@ -7,6 +7,8 @@ import DerivativesView from './components/DerivativesView';
 import AnalysisView from './components/AnalysisView';
 import NewsView from './components/NewsView';
 import SettingsView from './components/SettingsView';
+import TradingView from './components/TradingView';
+import PortfolioView from './components/PortfolioView';
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -23,6 +25,10 @@ function App() {
         return <AnalysisView />;
       case 'news':
         return <NewsView />;
+      case 'trading':
+        return <TradingView />;
+      case 'portfolio':
+        return <PortfolioView />;
       case 'settings':
         return <SettingsView />;
       default:

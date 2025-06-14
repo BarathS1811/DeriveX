@@ -1,10 +1,27 @@
-import React, { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Zap, Calculator, TrendingUp, Activity, BarChart } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Zap, Calculator, TrendingUp, Activity, BarChart, Clock } from 'lucide-react';
+import CandlestickChart from './CandlestickChart';
+import { dataService } from '../services/DataService';
 
 const DerivativesView: React.FC = () => {
   const [selectedContract, setSelectedContract] = useState('NIFTY50-CE-19300');
   const [selectedSegment, setSelectedSegment] = useState('Options');
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [timeframe, setTimeframe] = useState('5m');
+  const [selectedIndicators, setSelectedIndicators] = useState(['Supertrend', 'RSI']);
+  const [dataTimestamp, setDataTimestamp] = useState(new Date());
+  const [isLiveData, setIsLiveData] = useState(false);
+
+  const [indicatorSettings] = useState({
+    CPR: { period: 1 },
+    Supertrend: { period: 10, multiplier: 3 },
+    VWAP: { period: 14 },
+    RSI: { period: 14, overbought: 70, oversold: 30 },
+    EMA20: { period: 20 },
+    EMA200: { period: 200 },
+    MACD: { fast: 12, slow: 26, signal: 9 },
+    BollingerBands: { period: 20, deviation: 2 }
+  });
 
   const derivatives = [
     { symbol: 'NIFTY50-CE-19300', type: 'Call', strike: 19300, expiry: '2024-01-25', ltp: 125.50, change: 12.25, iv: 18.5, oi: 2458000, volume: 156000 },
@@ -32,18 +49,40 @@ const DerivativesView: React.FC = () => {
     { name: 'Bull Call Spread', description: 'Buy Call + Sell higher strike Call', pnl: '+₹3,200', maxLoss: '₹4,200', probability: '65%' },
   ];
 
-  // Mock chart data for selected derivative
-  const chartData = Array.from({ length: 50 }, (_, i) => ({
-    time: `${9 + Math.floor(i / 10)}:${(i % 10) * 6}`,
-    price: 125 + Math.random() * 20 - 10,
-    volume: Math.random() * 100000,
-  }));
+  useEffect(() => {
+    const fetchChartData = async () => {
+      try {
+        // For derivatives, we'll use mock data based on the underlying
+        const underlyingSymbol = selectedContract.split('-')[0];
+        const candlestickData = await dataService.getCandlestickData(underlyingSymbol, timeframe);
+        
+        // Adjust data for derivative pricing (simplified)
+        const adjustedData = candlestickData.map(candle => ({
+          ...candle,
+          open: candle.open * 0.01, // Simplified option pricing
+          high: candle.high * 0.01,
+          low: candle.low * 0.01,
+          close: candle.close * 0.01,
+        }));
+        
+        setChartData(adjustedData);
+        setDataTimestamp(dataService.getDataTimestamp());
+        setIsLiveData(dataService.isLiveData());
+      } catch (error) {
+        console.error('Error fetching derivative chart data:', error);
+      }
+    };
+
+    fetchChartData();
+    const interval = setInterval(fetchChartData, 30000);
+
+    return () => clearInterval(interval);
+  }, [selectedContract, timeframe]);
 
   const currentData = selectedSegment === 'Options' ? derivatives : futures;
   const selectedData = currentData.find(item => item.symbol === selectedContract);
 
   const analyzeContract = () => {
-    // Enhanced contract analysis with actual functionality
     const analysis = {
       greeks: selectedSegment === 'Options' ? greeks : null,
       technicalAnalysis: {
@@ -88,6 +127,12 @@ Recommendation: ${analysis.recommendation}`);
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold">Derivatives Analysis</h2>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-400" />
+            <div className="text-sm text-gray-400">
+              {isLiveData ? 'Live Data' : 'Delayed Data'} - {dataTimestamp.toLocaleString()}
+            </div>
+          </div>
           <select 
             value={selectedSegment} 
             onChange={(e) => setSelectedSegment(e.target.value)}
@@ -117,7 +162,7 @@ Recommendation: ${analysis.recommendation}`);
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Chart and Contract Details */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Live Chart */}
+          {/* Live Chart with Indicators */}
           <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold flex items-center gap-2">
@@ -129,29 +174,13 @@ Recommendation: ${analysis.recommendation}`);
               </div>
             </div>
             
-            <div className="h-64 mb-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis dataKey="time" tick={{ fill: '#9CA3AF', fontSize: 12 }} />
-                  <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1F2937', 
-                      border: '1px solid #4B5563',
-                      borderRadius: '8px'
-                    }} 
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="price" 
-                    stroke="#0EA5E9" 
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            <CandlestickChart
+              data={chartData}
+              indicators={selectedIndicators}
+              indicatorSettings={indicatorSettings}
+              timeframe={timeframe}
+              onTimeframeChange={setTimeframe}
+            />
           </div>
         </div>
 

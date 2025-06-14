@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Settings, TrendingUp, X, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, TrendingUp, X, Plus, Clock } from 'lucide-react';
+import CandlestickChart from './CandlestickChart';
+import { dataService } from '../services/DataService';
 
 const ChartsView: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState('NIFTY50');
   const [selectedIndicators, setSelectedIndicators] = useState(['CPR', 'Supertrend']);
   const [showIndicatorSettings, setShowIndicatorSettings] = useState(false);
+  const [timeframe, setTimeframe] = useState('5m');
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [marketData, setMarketData] = useState<any>(null);
+  const [dataTimestamp, setDataTimestamp] = useState(new Date());
+  const [isLiveData, setIsLiveData] = useState(false);
+  
   const [indicatorSettings, setIndicatorSettings] = useState({
     CPR: { period: 1 },
     Supertrend: { period: 10, multiplier: 3 },
@@ -41,12 +48,26 @@ const ChartsView: React.FC = () => {
 
   const indices = ['NIFTY50', 'BANKNIFTY', 'NIFTYIT', 'NIFTYFMCG', 'NIFTYFINANCIAL', 'NIFTYMIDCAP50', 'NIFTYSMALLCAP100'];
 
-  // Mock chart data
-  const chartData = Array.from({ length: 50 }, (_, i) => ({
-    time: `${9 + Math.floor(i / 10)}:${(i % 10) * 6}`,
-    price: 19000 + Math.random() * 500 - 250,
-    volume: Math.random() * 1000000,
-  }));
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const candlestickData = await dataService.getCandlestickData(selectedIndex, timeframe);
+        const currentMarketData = await dataService.getMarketData(selectedIndex);
+        
+        setChartData(candlestickData);
+        setMarketData(currentMarketData);
+        setDataTimestamp(dataService.getDataTimestamp());
+        setIsLiveData(dataService.isLiveData());
+      } catch (error) {
+        console.error('Error fetching chart data:', error);
+      }
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+
+    return () => clearInterval(interval);
+  }, [selectedIndex, timeframe]);
 
   const addIndicator = (indicator: string) => {
     if (!selectedIndicators.includes(indicator)) {
@@ -83,6 +104,12 @@ const ChartsView: React.FC = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold">Live Charts</h2>
         <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-gray-400" />
+            <div className="text-sm text-gray-400">
+              {isLiveData ? 'Live Data' : 'Delayed Data'} - {dataTimestamp.toLocaleString()}
+            </div>
+          </div>
           <select 
             value={selectedIndex} 
             onChange={(e) => setSelectedIndex(e.target.value)}
@@ -99,10 +126,14 @@ const ChartsView: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <h3 className="text-xl font-semibold">{selectedIndex}</h3>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-secondary" />
-              <span className="text-secondary">19,245.30 (+0.82%)</span>
-            </div>
+            {marketData && (
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-secondary" />
+                <span className={`${marketData.change >= 0 ? 'text-secondary' : 'text-danger'}`}>
+                  {marketData.price.toFixed(2)} ({marketData.change >= 0 ? '+' : ''}{marketData.changePercent.toFixed(2)}%)
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -214,50 +245,36 @@ const ChartsView: React.FC = () => {
           </div>
         )}
 
-        {/* Chart */}
-        <div className="h-96 mb-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="time" tick={{ fill: '#9CA3AF', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1F2937', 
-                  border: '1px solid #4B5563',
-                  borderRadius: '8px'
-                }} 
-              />
-              <Line 
-                type="monotone" 
-                dataKey="price" 
-                stroke="#0EA5E9" 
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {/* Candlestick Chart */}
+        <CandlestickChart
+          data={chartData}
+          indicators={selectedIndicators}
+          indicatorSettings={indicatorSettings}
+          timeframe={timeframe}
+          onTimeframeChange={setTimeframe}
+        />
 
         {/* OHLC Data */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-gray-750 rounded-lg p-3">
-            <div className="text-xs text-gray-400">Open</div>
-            <div className="font-semibold">19,089.05</div>
+        {marketData?.ohlc && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            <div className="bg-gray-750 rounded-lg p-3">
+              <div className="text-xs text-gray-400">Open</div>
+              <div className="font-semibold">{marketData.ohlc.open.toFixed(2)}</div>
+            </div>
+            <div className="bg-gray-750 rounded-lg p-3">
+              <div className="text-xs text-gray-400">High</div>
+              <div className="font-semibold text-secondary">{marketData.ohlc.high.toFixed(2)}</div>
+            </div>
+            <div className="bg-gray-750 rounded-lg p-3">
+              <div className="text-xs text-gray-400">Low</div>
+              <div className="font-semibold text-danger">{marketData.ohlc.low.toFixed(2)}</div>
+            </div>
+            <div className="bg-gray-750 rounded-lg p-3">
+              <div className="text-xs text-gray-400">Volume</div>
+              <div className="font-semibold">{(marketData.volume / 1000000000).toFixed(2)}B</div>
+            </div>
           </div>
-          <div className="bg-gray-750 rounded-lg p-3">
-            <div className="text-xs text-gray-400">High</div>
-            <div className="font-semibold text-secondary">19,297.85</div>
-          </div>
-          <div className="bg-gray-750 rounded-lg p-3">
-            <div className="text-xs text-gray-400">Low</div>
-            <div className="font-semibold text-danger">19,045.20</div>
-          </div>
-          <div className="bg-gray-750 rounded-lg p-3">
-            <div className="text-xs text-gray-400">Volume</div>
-            <div className="font-semibold">2.1B</div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
