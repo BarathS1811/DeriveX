@@ -10,33 +10,55 @@ export interface IndicatorResult {
 }
 
 export class TechnicalIndicators {
-  static calculateCPR(data: any[], settings: IndicatorSettings = { period: 1 }): IndicatorResult {
+  static calculateCPR(data: any[], settings: IndicatorSettings = {}): IndicatorResult {
+    const {
+      pivotMode = 'Auto',
+      showDaily = true,
+      showWeekly = false,
+      showMonthly = false,
+      showNextDay = false,
+      showNextWeek = false,
+      showNextMonth = false,
+      inputsInStatusLine = true
+    } = settings;
+
     const results: number[] = [];
     const levels: { [key: string]: number[] } = {
       pivot: [],
       r1: [],
       r2: [],
+      r3: [],
       s1: [],
-      s2: []
+      s2: [],
+      s3: []
     };
 
-    data.forEach((candle) => {
+    data.forEach((candle, index) => {
       const high = candle.high;
       const low = candle.low;
       const close = candle.close;
       
+      // Central Pivot Range calculation
       const pivot = (high + low + close) / 3;
+      const bc = (high + low) / 2;
+      const tc = (pivot - bc) + pivot;
+      
+      // Support and Resistance levels
       const r1 = 2 * pivot - low;
       const r2 = pivot + (high - low);
+      const r3 = high + 2 * (pivot - low);
       const s1 = 2 * pivot - high;
       const s2 = pivot - (high - low);
+      const s3 = low - 2 * (high - pivot);
       
       results.push(pivot);
       levels.pivot.push(pivot);
       levels.r1.push(r1);
       levels.r2.push(r2);
+      levels.r3.push(r3);
       levels.s1.push(s1);
       levels.s2.push(s2);
+      levels.s3.push(s3);
     });
 
     return {
@@ -46,33 +68,48 @@ export class TechnicalIndicators {
     };
   }
 
-  static calculateSupertrend(data: any[], settings: IndicatorSettings = { period: 10, multiplier: 3 }): IndicatorResult {
-    const { period, multiplier } = settings;
+  static calculateSupertrend(data: any[], settings: IndicatorSettings = {}): IndicatorResult {
+    const {
+      indicatorTimeframe = 'Chart',
+      atrPeriod = 9,
+      source = 'HL2',
+      atrMultiplier = 2,
+      changeATRCalculationMethod = true,
+      showBuySellSignals = true,
+      highlighterOnOff = true,
+      inputsInStatusLine = true
+    } = settings;
+
     const results: number[] = [];
     const signals: string[] = [];
     
     // Calculate ATR first
-    const atr = this.calculateATR(data, period);
+    const atr = this.calculateATR(data, atrPeriod);
     
     data.forEach((candle, index) => {
-      if (index < period) {
+      if (index < atrPeriod) {
         results.push(0);
         signals.push('');
         return;
       }
       
-      const hl2 = (candle.high + candle.low) / 2;
+      const src = source === 'HL2' ? (candle.high + candle.low) / 2 : candle.close;
       const atrValue = atr.values[index] || 0;
       
-      const upperBand = hl2 + (multiplier * atrValue);
-      const lowerBand = hl2 - (multiplier * atrValue);
+      const upperBand = src + (atrMultiplier * atrValue);
+      const lowerBand = src - (atrMultiplier * atrValue);
       
       // Simplified supertrend calculation
       const prevClose = data[index - 1]?.close || candle.close;
       const supertrend = candle.close > prevClose ? lowerBand : upperBand;
       
       results.push(supertrend);
-      signals.push(candle.close > supertrend ? 'BUY' : 'SELL');
+      
+      if (showBuySellSignals) {
+        signals.push(candle.close > supertrend ? 'BUY' : 'SELL');
+      } else {
+        signals.push('');
+      }
     });
 
     return {
@@ -82,30 +119,73 @@ export class TechnicalIndicators {
     };
   }
 
-  static calculateVWAP(data: any[], settings: IndicatorSettings = { period: 14 }): IndicatorResult {
+  static calculateVWAP(data: any[], settings: IndicatorSettings = {}): IndicatorResult {
+    const {
+      hideVWAPOn1DOrAbove = false,
+      anchorPeriod = 'Session',
+      source = 'HLC3',
+      offset = 0,
+      bandsCalculationMode = 'Standard',
+      bandsMultiplier1 = 1,
+      bandsMultiplier2 = 2,
+      bandsMultiplier3 = 3,
+      timeframe = 'Chart'
+    } = settings;
+
     const results: number[] = [];
+    const levels: { [key: string]: number[] } = {};
+    
     let cumulativeTPV = 0;
     let cumulativeVolume = 0;
+    let cumulativeSquaredTPV = 0;
 
-    data.forEach((candle) => {
-      const typicalPrice = (candle.high + candle.low + candle.close) / 3;
+    data.forEach((candle, index) => {
+      const typicalPrice = source === 'HLC3' ? 
+        (candle.high + candle.low + candle.close) / 3 :
+        (candle.high + candle.low) / 2;
+      
       const tpv = typicalPrice * candle.volume;
       
       cumulativeTPV += tpv;
       cumulativeVolume += candle.volume;
+      cumulativeSquaredTPV += typicalPrice * typicalPrice * candle.volume;
       
       const vwap = cumulativeVolume > 0 ? cumulativeTPV / cumulativeVolume : typicalPrice;
+      
+      // Calculate VWAP bands if enabled
+      if (bandsCalculationMode === 'Standard' && cumulativeVolume > 0) {
+        const variance = (cumulativeSquaredTPV / cumulativeVolume) - (vwap * vwap);
+        const stdDev = Math.sqrt(Math.max(variance, 0));
+        
+        if (!levels.upper1) {
+          levels.upper1 = [];
+          levels.lower1 = [];
+          levels.upper2 = [];
+          levels.lower2 = [];
+          levels.upper3 = [];
+          levels.lower3 = [];
+        }
+        
+        levels.upper1.push(vwap + (bandsMultiplier1 * stdDev));
+        levels.lower1.push(vwap - (bandsMultiplier1 * stdDev));
+        levels.upper2.push(vwap + (bandsMultiplier2 * stdDev));
+        levels.lower2.push(vwap - (bandsMultiplier2 * stdDev));
+        levels.upper3.push(vwap + (bandsMultiplier3 * stdDev));
+        levels.lower3.push(vwap - (bandsMultiplier3 * stdDev));
+      }
+      
       results.push(vwap);
     });
 
     return {
       name: 'VWAP',
-      values: results
+      values: results,
+      levels: Object.keys(levels).length > 0 ? levels : undefined
     };
   }
 
   static calculateRSI(data: any[], settings: IndicatorSettings = { period: 14, overbought: 70, oversold: 30 }): IndicatorResult {
-    const { period } = settings;
+    const { period, overbought, oversold } = settings;
     const results: number[] = [];
     const signals: string[] = [];
     
@@ -137,8 +217,8 @@ export class TechnicalIndicators {
         
         results.push(rsi);
         
-        if (rsi > settings.overbought) signals.push('SELL');
-        else if (rsi < settings.oversold) signals.push('BUY');
+        if (rsi > overbought) signals.push('SELL');
+        else if (rsi < oversold) signals.push('BUY');
         else signals.push('');
       } else {
         results.push(50);
@@ -149,7 +229,11 @@ export class TechnicalIndicators {
     return {
       name: 'RSI',
       values: results,
-      signals
+      signals,
+      levels: {
+        overbought: new Array(results.length).fill(overbought),
+        oversold: new Array(results.length).fill(oversold)
+      }
     };
   }
 

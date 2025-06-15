@@ -1,9 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Briefcase, TrendingUp, TrendingDown, PieChart, BarChart3, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { tradingService, Position } from '../services/TradingService';
+import { authService } from '../services/AuthService';
 
 const PortfolioView: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('1M');
+  const [user, setUser] = useState(authService.getCurrentUser());
+  const [positions, setPositions] = useState<Position[]>([]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUser(authService.getCurrentUser());
+      if (authService.isLoggedIn()) {
+        setPositions(tradingService.getPositions());
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const holdings = [
     {
@@ -72,7 +87,22 @@ const PortfolioView: React.FC = () => {
   const totalPnL = totalCurrentValue - totalInvested;
   const totalPnLPercent = (totalPnL / totalInvested) * 100;
 
+  // Add derivatives positions to portfolio
+  const derivativesPnL = positions.reduce((sum, pos) => sum + pos.pnl, 0);
+  const derivativesInvested = positions.reduce((sum, pos) => sum + (pos.avgPrice * Math.abs(pos.quantity)), 0);
+
   const periods = ['1D', '1W', '1M', '3M', '6M', '1Y'];
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Please Login</h2>
+          <p className="text-gray-400">You need to login to access portfolio features.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -104,7 +134,7 @@ const PortfolioView: React.FC = () => {
             <Briefcase className="w-5 h-5 text-primary" />
             <span className="text-sm text-gray-400">Total Invested</span>
           </div>
-          <div className="text-2xl font-bold">₹{totalInvested.toLocaleString()}</div>
+          <div className="text-2xl font-bold">₹{(totalInvested + derivativesInvested).toLocaleString()}</div>
         </div>
 
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
@@ -112,23 +142,23 @@ const PortfolioView: React.FC = () => {
             <BarChart3 className="w-5 h-5 text-secondary" />
             <span className="text-sm text-gray-400">Current Value</span>
           </div>
-          <div className="text-2xl font-bold">₹{totalCurrentValue.toLocaleString()}</div>
+          <div className="text-2xl font-bold">₹{(totalCurrentValue + derivativesInvested + derivativesPnL).toLocaleString()}</div>
         </div>
 
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
           <div className="flex items-center gap-2 mb-2">
-            {totalPnL >= 0 ? (
+            {(totalPnL + derivativesPnL) >= 0 ? (
               <TrendingUp className="w-5 h-5 text-secondary" />
             ) : (
               <TrendingDown className="w-5 h-5 text-danger" />
             )}
             <span className="text-sm text-gray-400">Total P&L</span>
           </div>
-          <div className={`text-2xl font-bold ${totalPnL >= 0 ? 'text-secondary' : 'text-danger'}`}>
-            ₹{totalPnL.toLocaleString()}
+          <div className={`text-2xl font-bold ${(totalPnL + derivativesPnL) >= 0 ? 'text-secondary' : 'text-danger'}`}>
+            ₹{(totalPnL + derivativesPnL).toLocaleString()}
           </div>
-          <div className={`text-sm ${totalPnL >= 0 ? 'text-secondary' : 'text-danger'}`}>
-            {totalPnLPercent >= 0 ? '+' : ''}{totalPnLPercent.toFixed(2)}%
+          <div className={`text-sm ${(totalPnL + derivativesPnL) >= 0 ? 'text-secondary' : 'text-danger'}`}>
+            {((totalPnL + derivativesPnL) / (totalInvested + derivativesInvested) * 100).toFixed(2)}%
           </div>
         </div>
 
@@ -273,6 +303,33 @@ const PortfolioView: React.FC = () => {
                   <td className="py-3 px-4">
                     <span className="bg-gray-600 text-xs px-2 py-1 rounded">
                       {holding.sector}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              
+              {/* Derivatives Positions */}
+              {positions.map((position) => (
+                <tr key={`pos-${position.id}`} className="border-b border-gray-700 hover:bg-gray-750">
+                  <td className="py-3 px-4 font-semibold">{position.symbol}</td>
+                  <td className="py-3 px-4 text-right">{position.quantity}</td>
+                  <td className="py-3 px-4 text-right">₹{position.avgPrice.toFixed(2)}</td>
+                  <td className="py-3 px-4 text-right">₹{position.ltp.toFixed(2)}</td>
+                  <td className="py-3 px-4 text-right">₹{(position.avgPrice * Math.abs(position.quantity)).toLocaleString()}</td>
+                  <td className="py-3 px-4 text-right">₹{(position.ltp * Math.abs(position.quantity)).toLocaleString()}</td>
+                  <td className={`py-3 px-4 text-right font-semibold ${
+                    position.pnl >= 0 ? 'text-secondary' : 'text-danger'
+                  }`}>
+                    ₹{position.pnl.toLocaleString()}
+                  </td>
+                  <td className={`py-3 px-4 text-right font-semibold ${
+                    position.pnlPercent >= 0 ? 'text-secondary' : 'text-danger'
+                  }`}>
+                    {position.pnlPercent >= 0 ? '+' : ''}{position.pnlPercent.toFixed(2)}%
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className="bg-purple-600 text-xs px-2 py-1 rounded">
+                      Derivatives
                     </span>
                   </td>
                 </tr>

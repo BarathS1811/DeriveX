@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -9,9 +9,32 @@ import NewsView from './components/NewsView';
 import SettingsView from './components/SettingsView';
 import TradingView from './components/TradingView';
 import PortfolioView from './components/PortfolioView';
+import LoginModal from './components/LoginModal';
+import { authService } from './services/AuthService';
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [user, setUser] = useState(authService.getCurrentUser());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUser(authService.getCurrentUser());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    // Show login modal for trading-related views if user is not logged in
+    if (['trading', 'portfolio', 'settings'].includes(activeView) && !user) {
+      setShowLoginModal(true);
+    }
+  }, [activeView, user]);
+
+  const handleLogin = () => {
+    setUser(authService.getCurrentUser());
+  };
 
   const renderActiveView = () => {
     switch (activeView) {
@@ -45,6 +68,12 @@ function App() {
           {renderActiveView()}
         </main>
       </div>
+      
+      <LoginModal 
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onLogin={handleLogin}
+      />
     </div>
   );
 }

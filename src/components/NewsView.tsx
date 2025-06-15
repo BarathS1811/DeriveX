@@ -1,59 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Newspaper, Clock, TrendingUp, AlertTriangle, Search } from 'lucide-react';
+import { newsService } from '../services/NewsService';
 
 const NewsView: React.FC = () => {
   const [selectedIndex, setSelectedIndex] = useState('NIFTY50');
+  const [news, setNews] = useState<any[]>([]);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
   const indices = ['NIFTY50', 'BANKNIFTY', 'NIFTYIT', 'NIFTYFMCG', 'NIFTYFINANCIAL', 'NIFTYMIDCAP50', 'NIFTYSMALLCAP100'];
 
-  const newsData = {
-    NIFTY50: [
-      {
-        title: 'RBI Monetary Policy: Repo Rate Held at 6.50%',
-        summary: 'Reserve Bank maintains accommodative stance, inflation concerns persist',
-        impact: 'High',
-        sentiment: 'Neutral',
-        time: '2 hours ago',
-        marketMove: '+0.85%',
-        historicalPattern: 'Similar to Dec 2022 decision - market rallied 1.2% next day',
-        category: 'Monetary Policy'
-      },
-      {
-        title: 'Q3 GDP Growth Accelerates to 6.8%',
-        summary: 'Manufacturing and services sectors show strong momentum',
-        impact: 'High',
-        sentiment: 'Positive',
-        time: '4 hours ago',
-        marketMove: '+1.20%',
-        historicalPattern: 'GDP beats often trigger 0.8-1.5% index gains',
-        category: 'Economic Data'
-      },
-    ],
-    BANKNIFTY: [
-      {
-        title: 'Banking Sector NPAs Decline to 3.2%',
-        summary: 'Major banks report improved asset quality in Q3',
-        impact: 'High',
-        sentiment: 'Positive',
-        time: '1 hour ago',
-        marketMove: '+1.45%',
-        historicalPattern: 'NPA improvements historically boost banking index by 1-2%',
-        category: 'Banking'
-      },
-      {
-        title: 'RBI Increases Bank Credit Growth Target',
-        summary: 'Central bank encourages lending to boost economic growth',
-        impact: 'Medium',
-        sentiment: 'Positive',
-        time: '3 hours ago',
-        marketMove: '+0.75%',
-        historicalPattern: 'Credit growth targets typically positive for bank stocks',
-        category: 'Regulatory'
-      },
-    ]
-  };
+  useEffect(() => {
+    const updateNews = () => {
+      const indexNews = newsService.getNewsForIndex(selectedIndex);
+      setNews(indexNews);
+      setLastUpdate(newsService.getLastUpdateTime());
+    };
 
-  const currentNews = newsData[selectedIndex] || newsData.NIFTY50;
+    updateNews();
+    const interval = setInterval(updateNews, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [selectedIndex]);
 
   const marketEvents = [
     {
@@ -91,11 +58,11 @@ const NewsView: React.FC = () => {
             ))}
           </select>
           <div className="text-sm text-gray-400">
+            Last Update: {lastUpdate.toLocaleTimeString()}
+          </div>
+          <div className="text-sm text-gray-400">
             AI Confidence: <span className="text-secondary font-semibold">94%</span>
           </div>
-          <button className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
-            Refresh Analysis
-          </button>
         </div>
       </div>
 
@@ -108,52 +75,66 @@ const NewsView: React.FC = () => {
             </h3>
             
             <div className="space-y-4">
-              {currentNews.map((item, index) => (
-                <div key={index} className="bg-gray-750 rounded-lg p-4 border border-gray-600">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          item.impact === 'High' ? 'bg-danger/20 text-danger' :
-                          item.impact === 'Medium' ? 'bg-accent/20 text-accent' :
-                          'bg-gray-600 text-gray-300'
-                        }`}>
-                          {item.impact}
-                        </span>
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          item.sentiment === 'Positive' ? 'bg-secondary/20 text-secondary' :
-                          item.sentiment === 'Negative' ? 'bg-danger/20 text-danger' :
-                          'bg-gray-600 text-gray-300'
-                        }`}>
-                          {item.sentiment}
-                        </span>
-                        <span className="text-xs text-gray-400">{item.category}</span>
-                      </div>
-                      <h4 className="font-semibold mb-1">{item.title}</h4>
-                      <p className="text-sm text-gray-400 mb-2">{item.summary}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1 text-xs text-gray-400 mb-1">
-                        <Clock className="w-3 h-3" />
-                        {item.time}
-                      </div>
-                      <div className={`text-sm font-semibold ${
-                        item.marketMove.startsWith('+') ? 'text-secondary' : 'text-danger'
-                      }`}>
-                        {item.marketMove}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gray-800 rounded p-3 text-sm">
-                    <div className="flex items-center gap-2 mb-1">
-                      <TrendingUp className="w-4 h-4 text-primary" />
-                      <span className="font-medium">Historical Pattern</span>
-                    </div>
-                    <p className="text-gray-300">{item.historicalPattern}</p>
-                  </div>
+              {news.length === 0 ? (
+                <div className="text-center text-gray-400 py-8">
+                  No news available for {selectedIndex}
                 </div>
-              ))}
+              ) : (
+                news.map((item, index) => (
+                  <div key={index} className="bg-gray-750 rounded-lg p-4 border border-gray-600">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            item.impact === 'High' ? 'bg-danger/20 text-danger' :
+                            item.impact === 'Medium' ? 'bg-accent/20 text-accent' :
+                            'bg-gray-600 text-gray-300'
+                          }`}>
+                            {item.impact}
+                          </span>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            item.sentiment === 'Positive' ? 'bg-secondary/20 text-secondary' :
+                            item.sentiment === 'Negative' ? 'bg-danger/20 text-danger' :
+                            'bg-gray-600 text-gray-300'
+                          }`}>
+                            {item.sentiment}
+                          </span>
+                          <span className="text-xs text-gray-400">{item.category}</span>
+                          <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded">
+                            {item.relevance}% relevant
+                          </span>
+                        </div>
+                        <h4 className="font-semibold mb-1">{item.title}</h4>
+                        <p className="text-sm text-gray-400 mb-2">{item.summary}</p>
+                        <div className="text-xs text-gray-500">Source: {item.source}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 text-xs text-gray-400 mb-1">
+                          <Clock className="w-3 h-3" />
+                          {item.time}
+                        </div>
+                        {item.marketMove && (
+                          <div className={`text-sm font-semibold ${
+                            item.marketMove.startsWith('+') ? 'text-secondary' : 'text-danger'
+                          }`}>
+                            {item.marketMove}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {item.historicalPattern && (
+                      <div className="bg-gray-800 rounded p-3 text-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <TrendingUp className="w-4 h-4 text-primary" />
+                          <span className="font-medium">Historical Pattern</span>
+                        </div>
+                        <p className="text-gray-300">{item.historicalPattern}</p>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -212,6 +193,37 @@ const NewsView: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+            <h3 className="font-semibold mb-4">News Sources</h3>
+            
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Times Now India</span>
+                <span className="text-secondary">Active</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Economic Times</span>
+                <span className="text-secondary">Active</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Google News</span>
+                <span className="text-secondary">Active</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Reuters India</span>
+                <span className="text-secondary">Active</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Bloomberg India</span>
+                <span className="text-secondary">Active</span>
+              </div>
+            </div>
+            
+            <div className="mt-4 text-xs text-gray-400">
+              Updates: Every hour from 8 AM to 4 PM
             </div>
           </div>
         </div>
